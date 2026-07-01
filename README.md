@@ -30,6 +30,6 @@ StreamVault is a sleek IPTV web application built for a smooth and secure stream
 
 ---
 
-> **Built with ❤️ for a seamless IPTV experience.**
+> **Built by faysal Ahmed for a seamless IPTV experience.And educational and practice purpose only**
 
 </div>
