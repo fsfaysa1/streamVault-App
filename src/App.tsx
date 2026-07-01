@@ -2014,9 +2014,9 @@ export default function App() {
 
                     <div className="space-y-2 bg-slate-950 border border-slate-800 p-4 rounded-xl text-xs leading-relaxed text-slate-400">
                       <h4 className="text-white font-bold mb-1">Pricing & Packages:</h4>
-                      <p>🚀 <strong>Standard Package (30 Days):</strong> ৳300 BDT</p>
-                      <p>✨ <strong>Quarterly Special (90 Days):</strong> ৳800 BDT</p>
-                      <p>👑 <strong>Yearly Elite (365 Days):</strong> ৳2500 BDT</p>
+                      <p>🚀 <strong>Standard Package (30 Days):</strong> ৳99 BDT</p>
+                      <p>✨ <strong>Quarterly Special (90 days):</strong> ৳199 BDT</p>
+                      <p>👑 <strong>Yearly Elite (365 days):</strong> ৳1000 BDT</p>
                     </div>
 
                     {/* SUBMIT REQUEST FORM */}
@@ -2086,15 +2086,15 @@ export default function App() {
                               const val = Number(e.target.value);
                               setDurationDays(val);
                               // Auto calculate default rates to assist user
-                              if (val === 30) setPaymentAmount('300');
-                              if (val === 90) setPaymentAmount('800');
-                              if (val === 365) setPaymentAmount('2500');
+                              if (val === 30) setPaymentAmount('99');
+                              if (val === 90) setPaymentAmount('199');
+                              if (val === 365) setPaymentAmount('1000');
                             }}
                             className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-indigo-600 text-white"
                           >
-                            <option value="30">30 Days (৳300)</option>
-                            <option value="90">90 Days (৳800)</option>
-                            <option value="365">365 Days (৳2500)</option>
+                            <option value="30">30 Days (৳99)</option>
+                            <option value="90">90 Days (৳199)</option>
+                            <option value="365">365 Days (৳1000)</option>
                           </select>
                         </div>
                       </div>
