@@ -1,20 +1,35 @@
 <div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
+
+# 📺 StreamVault
+
+### A Modern & Secure Web-Based IPTV Platform
+
+StreamVault is a sleek IPTV web application built for a smooth and secure streaming experience. It features premium subscription management, secure proxy streaming, custom playlists, watch history, and a powerful admin dashboard.
+
+---
+
+### ✨ Features
+
+🎬 Live IPTV Streaming  
+🔒 Secure HTTP/HTTPS Proxy  
+👑 Premium Membership System  
+💳 Manual bKash Verification  
+📺 Custom Playlists  
+❤️ Favorites & Watch History  
+⚡ Fast & Responsive UI  
+🛠 Powerful Admin Dashboard
+
+---
+
+### 🚀 Tech Stack
+
+- HTML • CSS • JavaScript
+- Node.js
+- Express.js
+- JSON Database
+
+---
+
+> **Built with ❤️ for a seamless IPTV experience.**
+
 </div>
-
-# Run and deploy your AI Studio app
-
-This contains everything you need to run your app locally.
-
-View your app in AI Studio: https://ai.studio/apps/409965b5-8c6c-4398-b9cc-cc46d5f8bd41
-
-## Run Locally
-
-**Prerequisites:**  Node.js
-
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
