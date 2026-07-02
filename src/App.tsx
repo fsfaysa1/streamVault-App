@@ -2477,7 +2477,7 @@ export default function App() {
                           <span className="text-xl">🚀</span>
                           <p className="text-xs font-bold text-white">Standard</p>
                           <p className="text-[10px] text-slate-400">30 Days Plan</p>
-                          <p className="text-sm font-black text-pink-500 mt-1">৳300 BDT</p>
+                          <p className="text-sm font-black text-pink-500 mt-1">৳99 BDT</p>
                         </div>
                         {/* Package 2 */}
                         <div className="bg-slate-950 border border-purple-900/35 p-3.5 rounded-xl text-center space-y-1 relative overflow-hidden hover:border-purple-500/40 transition">
@@ -2485,14 +2485,14 @@ export default function App() {
                           <span className="text-xl">✨</span>
                           <p className="text-xs font-bold text-white">Quarterly</p>
                           <p className="text-[10px] text-slate-400">90 Days Plan</p>
-                          <p className="text-sm font-black text-pink-500 mt-1">৳800 BDT</p>
+                          <p className="text-sm font-black text-pink-500 mt-1">৳199 BDT</p>
                         </div>
                         {/* Package 3 */}
                         <div className="bg-slate-950 border border-amber-900/30 p-3.5 rounded-xl text-center space-y-1 hover:border-amber-500/40 transition">
                           <span className="text-xl">👑</span>
                           <p className="text-xs font-bold text-white">Yearly Elite</p>
                           <p className="text-[10px] text-slate-400">365 Days Plan</p>
-                          <p className="text-sm font-black text-pink-500 mt-1">৳2500 BDT</p>
+                          <p className="text-sm font-black text-pink-500 mt-1">৳999 BDT</p>
                         </div>
                       </div>
                     </div>
@@ -2564,15 +2564,15 @@ export default function App() {
                               const val = Number(e.target.value);
                               setDurationDays(val);
                               // Auto calculate default rates to assist user
-                              if (val === 30) setPaymentAmount('300');
-                              if (val === 90) setPaymentAmount('800');
-                              if (val === 365) setPaymentAmount('2500');
+                              if (val === 30) setPaymentAmount('99');
+                              if (val === 90) setPaymentAmount('199');
+                              if (val === 365) setPaymentAmount('999');
                             }}
                             className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-indigo-600 text-white"
                           >
-                            <option value="30">30 Days (৳300)</option>
-                            <option value="90">90 Days (৳800)</option>
-                            <option value="365">365 Days (৳2500)</option>
+                            <option value="30">30 Days (৳99)</option>
+                            <option value="90">90 Days (৳199)</option>
+                            <option value="365">365 Days (৳999)</option>
                           </select>
                         </div>
                       </div>
