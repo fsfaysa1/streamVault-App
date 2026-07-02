@@ -97,5 +97,59 @@
     "type": "info",
     "isReadBy": [],
     "createdAt": "2026-07-02T03:42:50.315Z"
+  },
+  {
+    "id": "ca8707e6-cf04-48cb-82ac-59d0926ec835",
+    "userId": "all",
+    "title": "Platform Updated 📢",
+    "message": "Site settings have been updated by Administrator.",
+    "type": "info",
+    "isReadBy": [],
+    "createdAt": "2026-07-02T03:48:01.508Z"
+  },
+  {
+    "id": "fdc3ff75-8f95-434c-8194-ee515102d40c",
+    "userId": "all",
+    "title": "Platform Updated 📢",
+    "message": "Site settings have been updated by Administrator.",
+    "type": "info",
+    "isReadBy": [],
+    "createdAt": "2026-07-02T03:48:05.120Z"
+  },
+  {
+    "id": "987bdc58-7647-4a80-bc35-3c37cde02ef5",
+    "userId": "all",
+    "title": "Platform Updated 📢",
+    "message": "Site settings have been updated by Administrator.",
+    "type": "info",
+    "isReadBy": [],
+    "createdAt": "2026-07-02T03:48:07.258Z"
+  },
+  {
+    "id": "bf062628-0427-41bf-9411-ef1d1e2a1b85",
+    "userId": "all",
+    "title": "Platform Updated 📢",
+    "message": "Site settings have been updated by Administrator.",
+    "type": "info",
+    "isReadBy": [],
+    "createdAt": "2026-07-02T03:48:15.284Z"
+  },
+  {
+    "id": "669bdc5f-166a-45a8-b868-77c72d165010",
+    "userId": "all",
+    "title": "Platform Updated 📢",
+    "message": "Site settings have been updated by Administrator.",
+    "type": "info",
+    "isReadBy": [],
+    "createdAt": "2026-07-02T03:48:19.117Z"
+  },
+  {
+    "id": "7e13c4c9-0818-475b-adbb-ce126ac84c8b",
+    "userId": "all",
+    "title": "Platform Updated 📢",
+    "message": "Site settings have been updated by Administrator.",
+    "type": "info",
+    "isReadBy": [],
+    "createdAt": "2026-07-02T03:49:07.358Z"
   }
 ]
