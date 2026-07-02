@@ -1,6 +1,6 @@
 {
   "name": "StreamVault IPTV Platform",
   "description": "A professional and modern Web-Based IPTV Platform featuring secure streaming, manual bKash Premium Subscription verification, an advanced Admin Dashboard, secure HTTP/HTTPS proxy streaming, custom playlists, and watch history.",
-  "requestFramePermissions": ["microphone"],
+  "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

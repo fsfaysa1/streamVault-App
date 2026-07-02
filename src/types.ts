@@ -84,9 +84,13 @@ export interface AppSettings {
   paymentNumber: string;
   paymentMethod: string;
   contactEmail: string;
+  supportPhone?: string;
   maintenanceMode: boolean;
   theme: 'slate' | 'cosmic' | 'emerald' | 'amber';
   announcementBanner: string;
+  githubToken?: string;
+  githubRepo?: string;
+  githubBranch?: string;
 }
 
 export interface SystemNotification {

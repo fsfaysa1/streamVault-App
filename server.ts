@@ -987,7 +987,11 @@ app.post('/api/admin/channels/refresh', authenticateUser, requireAdmin, (req, re
 
 // PUT /api/admin/settings (Update server settings)
 app.put('/api/admin/settings', authenticateUser, requireAdmin, (req, res) => {
-  const { siteName, siteLogo, playlistUrl, paymentNumber, paymentMethod, contactEmail, maintenanceMode, theme, announcementBanner } = req.body;
+  const { 
+    siteName, siteLogo, playlistUrl, paymentNumber, paymentMethod, 
+    contactEmail, supportPhone, maintenanceMode, theme, announcementBanner,
+    githubToken, githubRepo, githubBranch 
+  } = req.body;
 
   const settings = DB.getSettings();
 
@@ -997,9 +1001,13 @@ app.put('/api/admin/settings', authenticateUser, requireAdmin, (req, res) => {
   if (paymentNumber !== undefined) settings.paymentNumber = paymentNumber;
   if (paymentMethod !== undefined) settings.paymentMethod = paymentMethod;
   if (contactEmail !== undefined) settings.contactEmail = contactEmail;
+  if (supportPhone !== undefined) settings.supportPhone = supportPhone;
   if (maintenanceMode !== undefined) settings.maintenanceMode = maintenanceMode;
   if (theme !== undefined) settings.theme = theme;
   if (announcementBanner !== undefined) settings.announcementBanner = announcementBanner;
+  if (githubToken !== undefined) settings.githubToken = githubToken;
+  if (githubRepo !== undefined) settings.githubRepo = githubRepo;
+  if (githubBranch !== undefined) settings.githubBranch = githubBranch;
 
   DB.saveSettings(settings);
 
@@ -1017,6 +1025,82 @@ app.put('/api/admin/settings', authenticateUser, requireAdmin, (req, res) => {
   DB.saveNotifications(notifications);
 
   res.json({ message: 'Settings updated successfully', settings });
+});
+
+// POST /api/admin/notifications (Send custom notification to all or a single user)
+app.post('/api/admin/notifications', authenticateUser, requireAdmin, (req, res) => {
+  const { targetUsername, title, message, type } = req.body;
+
+  if (!title || !message) {
+    return res.status(400).json({ error: 'Title and message are required' });
+  }
+
+  let targetUserId = 'all';
+  if (targetUsername && targetUsername.trim() !== 'all' && targetUsername.trim() !== '') {
+    const users = DB.getUsers();
+    const foundUser = users.find(u => u.username.toLowerCase() === targetUsername.trim().toLowerCase());
+    if (!foundUser) {
+      return res.status(404).json({ error: `User with username "${targetUsername}" not found` });
+    }
+    targetUserId = foundUser.id;
+  }
+
+  const notifications = DB.getNotifications();
+  const newNotif = {
+    id: crypto.randomUUID(),
+    userId: targetUserId,
+    title,
+    message,
+    type: type || 'info',
+    isReadBy: [],
+    createdAt: new Date().toISOString()
+  };
+  notifications.push(newNotif);
+  DB.saveNotifications(notifications);
+
+  res.json({ message: 'Notification sent successfully!', notification: newNotif });
+});
+
+// GET /api/admin/backup (Export entire JSON database)
+app.get('/api/admin/backup', authenticateUser, requireAdmin, (req, res) => {
+  try {
+    const backupData = {
+      settings: DB.getSettings(),
+      users: DB.getUsers(),
+      channels: DB.getChannels(),
+      subscriptions: DB.getSubscriptions(),
+      watchHistory: DB.getWatchHistory(),
+      loginHistory: DB.getLoginHistory(),
+      favourites: DB.getFavourites(),
+      notifications: DB.getNotifications()
+    };
+    res.json(backupData);
+  } catch (err: any) {
+    res.status(500).json({ error: `Backup failed: ${err.message}` });
+  }
+});
+
+// POST /api/admin/restore (Restore entire JSON database)
+app.post('/api/admin/restore', authenticateUser, requireAdmin, (req, res) => {
+  const backupData = req.body;
+  if (!backupData || typeof backupData !== 'object') {
+    return res.status(400).json({ error: 'No backup data provided' });
+  }
+
+  try {
+    if (backupData.settings) DB.saveSettings(backupData.settings);
+    if (backupData.users) DB.saveUsers(backupData.users);
+    if (backupData.channels) DB.saveChannels(backupData.channels);
+    if (backupData.subscriptions) DB.saveSubscriptions(backupData.subscriptions);
+    if (backupData.watchHistory) DB.saveWatchHistory(backupData.watchHistory);
+    if (backupData.loginHistory) DB.saveLoginHistory(backupData.loginHistory);
+    if (backupData.favourites) DB.saveFavourites(backupData.favourites);
+    if (backupData.notifications) DB.saveNotifications(backupData.notifications);
+
+    res.json({ message: 'Backup restored successfully! All tables reloaded.' });
+  } catch (err: any) {
+    res.status(500).json({ error: `Restore failed: ${err.message}` });
+  }
 });
 
 // ================= VITE OR PRODUCTION BUILD MIDDLEWARE =================

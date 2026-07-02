@@ -41,9 +41,13 @@ const DEFAULT_SETTINGS: AppSettings = {
   paymentNumber: '01736705156',
   paymentMethod: 'bKash',
   contactEmail: 'support@streamvault.com',
+  supportPhone: '01736705156',
   maintenanceMode: false,
   theme: 'cosmic',
-  announcementBanner: 'Welcome to StreamVault Premium IPTV! Send bKash to 01736705156 and use your username as reference, then submit verification request.'
+  announcementBanner: 'Welcome to StreamVault Premium IPTV! Send bKash to 01736705156 and use your username as reference, then submit verification request.',
+  githubToken: '',
+  githubRepo: '',
+  githubBranch: 'main'
 };
 
 // Simple read helper
@@ -61,6 +65,93 @@ function readJson<T>(filePath: string, defaultValue: T): T {
   }
 }
 
+function httpsRequest(options: any, postData?: string): Promise<{ statusCode?: number, body: string }> {
+  return new Promise((resolve, reject) => {
+    const req = https.request(options, (res) => {
+      let body = '';
+      res.on('data', (chunk) => { body += chunk; });
+      res.on('end', () => resolve({ statusCode: res.statusCode, body }));
+    });
+    req.on('error', (err) => reject(err));
+    if (postData) {
+      req.write(postData);
+    }
+    req.end();
+  });
+}
+
+async function syncToGitHub(filePath: string): Promise<void> {
+  try {
+    const settings = DB.getSettings();
+    if (!settings.githubToken || !settings.githubRepo) {
+      return; // GitHub Sync not configured
+    }
+
+    const token = settings.githubToken.trim();
+    const repo = settings.githubRepo.trim();
+    if (!token || !repo) return;
+
+    const branch = (settings.githubBranch || 'main').trim();
+    const relPath = path.relative(process.cwd(), filePath).replace(/\\/g, '/');
+
+    const fileContent = fs.readFileSync(filePath, 'utf8');
+    const contentBase64 = Buffer.from(fileContent).toString('base64');
+
+    // 1. Get current SHA if the file exists on GitHub
+    const getOptions = {
+      hostname: 'api.github.com',
+      path: `/repos/${repo}/contents/${relPath}?ref=${branch}`,
+      method: 'GET',
+      headers: {
+        'Authorization': `token ${token}`,
+        'Accept': 'application/vnd.github.v3+json',
+        'User-Agent': 'StreamVault-Sync-Engine'
+      }
+    };
+
+    let sha: string | undefined;
+    try {
+      const getRes = await httpsRequest(getOptions);
+      if (getRes.statusCode === 200) {
+        const data = JSON.parse(getRes.body);
+        sha = data.sha;
+      }
+    } catch (e) {
+      // File probably doesn't exist yet, which is fine
+    }
+
+    // 2. Upload file
+    const putBody = JSON.stringify({
+      message: `auto-sync: update ${relPath} [skip ci]`,
+      content: contentBase64,
+      branch: branch,
+      sha: sha
+    });
+
+    const putOptions = {
+      hostname: 'api.github.com',
+      path: `/repos/${repo}/contents/${relPath}`,
+      method: 'PUT',
+      headers: {
+        'Authorization': `token ${token}`,
+        'Accept': 'application/vnd.github.v3+json',
+        'User-Agent': 'StreamVault-Sync-Engine',
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(putBody)
+      }
+    };
+
+    const putRes = await httpsRequest(putOptions, putBody);
+    if (putRes.statusCode === 200 || putRes.statusCode === 201) {
+      console.log(`[GitHub Sync] Successfully pushed ${relPath} to GitHub!`);
+    } else {
+      console.error(`[GitHub Sync] Failed to push ${relPath} to GitHub (Status ${putRes.statusCode}):`, putRes.body);
+    }
+  } catch (error: any) {
+    console.error(`[GitHub Sync] Error syncing ${filePath} to GitHub:`, error.message);
+  }
+}
+
 // Simple write helper
 function writeJson<T>(filePath: string, data: T): void {
   try {
@@ -69,6 +160,11 @@ function writeJson<T>(filePath: string, data: T): void {
       fs.mkdirSync(DATA_DIR, { recursive: true });
     }
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
+    
+    // Auto sync to GitHub in the background
+    syncToGitHub(filePath).catch(err => {
+      console.error('[GitHub Sync Background Error]:', err);
+    });
   } catch (error) {
     console.error(`Error writing database file ${filePath}:`, error);
   }

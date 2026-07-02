@@ -6,10 +6,10 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   Tv, Search, Heart, History, Shield, LogOut, LogIn, UserPlus, 
-  Settings as SettingsIcon, Play, Pause, Volume2, VolumeX, Maximize, 
+  Settings as SettingsIcon, Play, Pause, Volume2, VolumeX, Maximize, Sun, 
   Minimize, RefreshCw, CheckCircle, XCircle, AlertCircle, Info, 
   Users, DollarSign, List, ToggleLeft, ToggleRight, Edit, Trash2, 
-  Plus, Check, X, Award, ExternalLink, HelpCircle, Activity, Bell,
+  Plus, Check, X, Award, ExternalLink, HelpCircle, Activity, Bell, Send, Mail, Phone,
   ChevronRight, ChevronDown, ChevronUp, Calendar, Smartphone, Globe, CreditCard, Radio, Key,
   Mic, MicOff
 } from 'lucide-react';
@@ -34,8 +34,8 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(false);
 
   // App Navigation state
-  const [activeTab, setActiveTab] = useState<'player' | 'favourite' | 'history' | 'premium' | 'admin'>('player');
-  const [adminSubTab, setAdminSubTab] = useState<'overview' | 'channels' | 'subscriptions' | 'users' | 'settings'>('overview');
+  const [activeTab, setActiveTab] = useState<'player' | 'favourite' | 'history' | 'premium' | 'admin' | 'support'>('player');
+  const [adminSubTab, setAdminSubTab] = useState<'overview' | 'channels' | 'subscriptions' | 'users' | 'settings' | 'notifications'>('overview');
 
   // Channels & Streaming state
   const [channels, setChannels] = useState<Channel[]>([]);
@@ -70,6 +70,26 @@ export default function App() {
   const [playerError, setPlayerError] = useState<string | null>(null);
   const [isBuffering, setIsBuffering] = useState(false);
   const [useProxy, setUseProxy] = useState(true); // Default to use stream proxy to bypass mixed-content blocks
+  
+  // Brightness and Mobile custom controls overlays
+  const [brightness, setBrightness] = useState<number>(1.0);
+  const [showMobileControls, setShowMobileControls] = useState(false);
+
+  // Scroll and Drag gesture states for Brightness/Volume
+  const touchStartY = useRef<number | null>(null);
+  const touchStartX = useRef<number | null>(null);
+  const touchStartVal = useRef<number>(0);
+  const touchStartType = useRef<'brightness' | 'volume' | null>(null);
+  const [indicatorMessage, setIndicatorMessage] = useState<{ text: string; type: 'brightness' | 'volume'; value: number } | null>(null);
+  const indicatorTimeoutRef = useRef<any>(null);
+
+  const triggerIndicator = (text: string, type: 'brightness' | 'volume', value: number) => {
+    setIndicatorMessage({ text, type, value });
+    if (indicatorTimeoutRef.current) clearTimeout(indicatorTimeoutRef.current);
+    indicatorTimeoutRef.current = setTimeout(() => {
+      setIndicatorMessage(null);
+    }, 1200);
+  };
 
   // Admin Dashboard & Management States
   const [analytics, setAnalytics] = useState<AnalyticsSummary | null>(null);
@@ -85,6 +105,14 @@ export default function App() {
   const [rejectingSubId, setRejectingSubId] = useState<string | null>(null);
   const [rejectionNotes, setRejectionNotes] = useState('');
   const [adminStatusMessage, setAdminStatusMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  // Admin Notification Composer States
+  const [notifTargetType, setNotifTargetType] = useState<'all' | 'specific'>('all');
+  const [notifTargetUsername, setNotifTargetUsername] = useState('');
+  const [notifTitle, setNotifTitle] = useState('');
+  const [notifMessage, setNotifMessage] = useState('');
+  const [notifType, setNotifType] = useState<'info' | 'warning' | 'success' | 'danger'>('info');
+  const [sendingNotif, setSendingNotif] = useState(false);
 
   // Change Password States
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
@@ -473,27 +501,168 @@ export default function App() {
     setIsMuted(!isMuted);
   };
 
-  const handleFullscreen = () => {
-    if (!playerContainerRef.current) return;
-    if (!document.fullscreenElement) {
-      playerContainerRef.current.requestFullscreen()
-        .then(() => setIsFullscreen(true))
-        .catch(err => console.error(err));
+  // Mobile controls auto-hide timer
+  useEffect(() => {
+    if (!showMobileControls) return;
+    const timer = setTimeout(() => {
+      setShowMobileControls(false);
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [showMobileControls]);
+
+  const handlePlayerTap = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('input')) {
+      return;
+    }
+    setShowMobileControls(prev => !prev);
+  };
+
+  const handlePlayerWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('input')) {
+      return;
+    }
+    e.preventDefault();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const isLeftHalf = x < rect.width / 2;
+
+    if (isLeftHalf) {
+      setBrightness(prev => {
+        const delta = e.deltaY < 0 ? 0.05 : -0.05;
+        const next = Math.min(Math.max(prev + delta, 0.3), 1.7);
+        triggerIndicator(`Brightness: ${Math.round(next * 100)}%`, 'brightness', next);
+        return next;
+      });
     } else {
-      document.exitFullscreen()
-        .then(() => setIsFullscreen(false))
-        .catch(err => console.error(err));
+      setVolume(prev => {
+        const delta = e.deltaY < 0 ? 0.05 : -0.05;
+        const next = Math.min(Math.max(prev + delta, 0), 1);
+        setIsMuted(false);
+        triggerIndicator(`Volume: ${Math.round(next * 100)}%`, 'volume', next);
+        return next;
+      });
     }
   };
 
-  // Listen for fullscreen change events (e.g. user presses Esc)
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('input')) {
+      return;
+    }
+    if (e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = touch.clientX - rect.left;
+
+    const isLeftHalf = x < rect.width / 2;
+    
+    touchStartY.current = touch.clientY;
+    touchStartX.current = touch.clientX;
+    touchStartType.current = isLeftHalf ? 'brightness' : 'volume';
+    touchStartVal.current = isLeftHalf ? brightness : volume;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (touchStartY.current === null || touchStartType.current === null) return;
+    const touch = e.touches[0];
+    const deltaY = touchStartY.current - touch.clientY;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const height = rect.height || 200;
+    const change = (deltaY / height) * 1.5;
+
+    if (touchStartType.current === 'brightness') {
+      const next = Math.min(Math.max(touchStartVal.current + change, 0.3), 1.7);
+      setBrightness(next);
+      triggerIndicator(`Brightness: ${Math.round(next * 100)}%`, 'brightness', next);
+    } else if (touchStartType.current === 'volume') {
+      const next = Math.min(Math.max(touchStartVal.current + change, 0), 1);
+      setVolume(next);
+      setIsMuted(false);
+      triggerIndicator(`Volume: ${Math.round(next * 100)}%`, 'volume', next);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    touchStartY.current = null;
+    touchStartX.current = null;
+    touchStartType.current = null;
+  };
+
+  const requestPlayerFullscreen = () => {
+    const container = playerContainerRef.current;
+    const video = videoRef.current;
+    if (!container || !video) return;
+
+    if (container.requestFullscreen) {
+      container.requestFullscreen()
+        .then(() => setIsFullscreen(true))
+        .catch(err => {
+          console.warn('Container requestFullscreen failed, falling back to video:', err);
+          if (video.requestFullscreen) {
+            video.requestFullscreen().then(() => setIsFullscreen(true)).catch(e => console.error(e));
+          } else if ((video as any).webkitEnterFullscreen) {
+            (video as any).webkitEnterFullscreen();
+            setIsFullscreen(true);
+          }
+        });
+    } else if ((video as any).webkitEnterFullscreen) {
+      // iOS Safari (iPhone) direct fullscreen support on video
+      (video as any).webkitEnterFullscreen();
+      setIsFullscreen(true);
+    } else if (video.requestFullscreen) {
+      video.requestFullscreen().then(() => setIsFullscreen(true)).catch(e => console.error(e));
+    } else {
+      setIsFullscreen(true);
+    }
+  };
+
+  const exitPlayerFullscreen = () => {
+    if (document.exitFullscreen) {
+      document.exitFullscreen()
+        .then(() => setIsFullscreen(false))
+        .catch(err => console.error('exitFullscreen failed:', err));
+    } else {
+      setIsFullscreen(false);
+    }
+  };
+
+  const handleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      requestPlayerFullscreen();
+    } else {
+      exitPlayerFullscreen();
+    }
+  };
+
+  // Listen for fullscreen change events (e.g. user presses Esc, or native iOS fullscreen triggers)
   useEffect(() => {
     const handleFsChange = () => {
       setIsFullscreen(!!document.fullscreenElement);
     };
+    
     document.addEventListener('fullscreenchange', handleFsChange);
-    return () => document.removeEventListener('fullscreenchange', handleFsChange);
-  }, []);
+    document.addEventListener('webkitfullscreenchange', handleFsChange);
+
+    const video = videoRef.current;
+    const onWebkitBegin = () => setIsFullscreen(true);
+    const onWebkitEnd = () => setIsFullscreen(false);
+
+    if (video) {
+      video.addEventListener('webkitbeginfullscreen', onWebkitBegin);
+      video.addEventListener('webkitendfullscreen', onWebkitEnd);
+    }
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFsChange);
+      document.removeEventListener('webkitfullscreenchange', handleFsChange);
+      if (video) {
+        video.removeEventListener('webkitbeginfullscreen', onWebkitBegin);
+        video.removeEventListener('webkitendfullscreen', onWebkitEnd);
+      }
+    };
+  }, [selectedChannel]);
 
   // Automatically switch to fullscreen landscape mode on mobile rotation when viewing a channel
   useEffect(() => {
@@ -510,25 +679,17 @@ export default function App() {
 
       if (isLandscape) {
         if (!document.fullscreenElement) {
-          playerContainerRef.current.requestFullscreen()
-            .then(() => {
-              setIsFullscreen(true);
-              if (screen.orientation && (screen.orientation as any).lock) {
-                (screen.orientation as any).lock('landscape').catch(() => {});
-              }
-            })
-            .catch(err => console.error('Auto-fullscreen rotation failed:', err));
+          requestPlayerFullscreen();
+          if (screen.orientation && (screen.orientation as any).lock) {
+            (screen.orientation as any).lock('landscape').catch(() => {});
+          }
         }
       } else {
-        if (document.fullscreenElement === playerContainerRef.current) {
-          document.exitFullscreen()
-            .then(() => {
-              setIsFullscreen(false);
-              if (screen.orientation && (screen.orientation as any).unlock) {
-                (screen.orientation as any).unlock();
-              }
-            })
-            .catch(err => console.error('Auto-exit fullscreen rotation failed:', err));
+        if (document.fullscreenElement) {
+          exitPlayerFullscreen();
+          if (screen.orientation && (screen.orientation as any).unlock) {
+            (screen.orientation as any).unlock();
+          }
         }
       }
     };
@@ -929,6 +1090,117 @@ export default function App() {
     } catch (err) {
       setAdminStatusMessage({ text: 'Network error', type: 'error' });
     }
+  };
+
+  const handleSendAdminNotification = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!notifTitle.trim() || !notifMessage.trim()) {
+      setAdminStatusMessage({ text: 'Title and Message are required', type: 'error' });
+      return;
+    }
+    
+    setSendingNotif(true);
+    setAdminStatusMessage(null);
+
+    try {
+      const res = await fetch('/api/admin/notifications', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          targetUsername: notifTargetType === 'all' ? 'all' : notifTargetUsername,
+          title: notifTitle,
+          message: notifMessage,
+          type: notifType
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setAdminStatusMessage({ text: 'Notification successfully dispatched!', type: 'success' });
+        // Reset composer inputs
+        setNotifTitle('');
+        setNotifMessage('');
+        setNotifTargetUsername('');
+        fetchNotifications(); // Refresh notifications locally
+      } else {
+        setAdminStatusMessage({ text: data.error || 'Failed to dispatch notification', type: 'error' });
+      }
+    } catch (err) {
+      setAdminStatusMessage({ text: 'Network connection failure', type: 'error' });
+    } finally {
+      setSendingNotif(false);
+    }
+  };
+
+  const handleExportBackup = async () => {
+    try {
+      const res = await fetch('/api/admin/backup', {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `streamvault_backup_${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        setAdminStatusMessage({ text: 'Backup database exported successfully!', type: 'success' });
+      } else {
+        const err = await res.json();
+        setAdminStatusMessage({ text: err.error || 'Failed to export backup', type: 'error' });
+      }
+    } catch (e: any) {
+      setAdminStatusMessage({ text: 'Network error exporting backup', type: 'error' });
+    }
+  };
+
+  const handleImportBackup = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const backupJson = JSON.parse(event.target?.result as string);
+        if (!backupJson || typeof backupJson !== 'object') {
+          setAdminStatusMessage({ text: 'Invalid JSON backup format', type: 'error' });
+          return;
+        }
+
+        const confirmRestore = window.confirm("Are you sure you want to restore this backup? This will replace all your current channels, users, settings, and histories.");
+        if (!confirmRestore) return;
+
+        const res = await fetch('/api/admin/restore', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify(backupJson)
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setAdminStatusMessage({ text: 'Database backup restored successfully! Reloading data...', type: 'success' });
+          // Reload page to refresh all stats and states
+          setTimeout(() => {
+            window.location.reload();
+          }, 1500);
+        } else {
+          setAdminStatusMessage({ text: data.error || 'Failed to restore backup', type: 'error' });
+        }
+      } catch (err) {
+        setAdminStatusMessage({ text: 'Error parsing backup file. Make sure it is a valid JSON backup.', type: 'error' });
+      }
+    };
+    reader.readAsText(file);
   };
 
   // --- FILTERS & CATEGORIES ---
@@ -1476,6 +1748,18 @@ export default function App() {
                   {isPremiumUser && <Check className="w-4 h-4 text-amber-300" />}
                 </button>
 
+                <button 
+                  id="side_support"
+                  onClick={() => setActiveTab('support')}
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition ${activeTab === 'support' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200'}`}
+                >
+                  <div className="flex items-center space-x-2.5">
+                    <HelpCircle className="w-4 h-4 text-emerald-400" />
+                    <span>Report & Support</span>
+                  </div>
+                  <ChevronRight className="w-4 h-4 opacity-50" />
+                </button>
+
                 {user.role === 'admin' && (
                   <button 
                     id="side_admin"
@@ -1586,15 +1870,56 @@ export default function App() {
                   <div 
                     id="player_viewport"
                     ref={playerContainerRef}
-                    className="relative aspect-video w-full bg-black rounded-2xl overflow-hidden border border-slate-800 shadow-2xl flex flex-col justify-between group"
+                    onClick={handlePlayerTap}
+                    onWheel={handlePlayerWheel}
+                    onTouchStart={handleTouchStart}
+                    onTouchMove={handleTouchMove}
+                    onTouchEnd={handleTouchEnd}
+                    className="relative aspect-video w-full bg-black rounded-2xl overflow-hidden border border-slate-800 shadow-2xl flex flex-col justify-between group select-none cursor-pointer"
                   >
                     {/* Buffered / Video Core */}
                     <video 
                       ref={videoRef}
-                      onClick={togglePlay}
-                      className="w-full h-full object-contain cursor-pointer"
+                      onClick={(e) => {
+                        const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || 
+                                         window.matchMedia('(max-width: 1024px)').matches;
+                        if (!isMobile) {
+                          e.stopPropagation();
+                          togglePlay();
+                        }
+                      }}
+                      style={{ filter: `brightness(${brightness})` }}
+                      className="w-full h-full object-contain cursor-pointer transition-all duration-350"
                       playsInline
                     />
+
+                    {/* Center Floating Indicator for Gestures */}
+                    {indicatorMessage && (
+                      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-50">
+                        <div className="bg-slate-950/90 border border-slate-800/80 backdrop-blur-lg px-5 py-3.5 rounded-2xl shadow-2xl flex flex-col items-center justify-center space-y-2 min-w-[120px]">
+                          {indicatorMessage.type === 'brightness' ? (
+                            <Sun className="w-8 h-8 text-amber-400 animate-pulse" />
+                          ) : (
+                            <Volume2 className="w-8 h-8 text-indigo-400 animate-pulse" />
+                          )}
+                          <span className="text-sm font-black font-mono text-white tracking-wider">{indicatorMessage.text}</span>
+                          {/* Mini Progress Bar */}
+                          <div className="w-20 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                            <div 
+                              className={`h-full rounded-full ${indicatorMessage.type === 'brightness' ? 'bg-amber-500' : 'bg-indigo-500'}`}
+                              style={{ width: `${Math.min(100, (indicatorMessage.type === 'brightness' ? (indicatorMessage.value - 0.3) / 1.4 : indicatorMessage.value) * 100)}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Gesture help tip overlay visible on hover */}
+                    {selectedChannel && !playerError && (
+                      <div className="absolute top-3 left-3 bg-slate-950/70 backdrop-blur-md px-2.5 py-1 rounded-full pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-[9px] text-slate-400 font-medium">
+                        💡 Scroll or Swipe up/down on Player to adjust Brightness (left) & Volume (right)
+                      </div>
+                    )}
 
                     {/* Loader overlays */}
                     {isBuffering && (
@@ -1626,22 +1951,22 @@ export default function App() {
 
                     {/* CUSTOM CONTROLS OVERLAY */}
                     {selectedChannel && !playerError && (
-                      <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-transparent p-4 flex flex-col space-y-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20">
+                      <div className={`absolute bottom-0 inset-x-0 bg-gradient-to-t from-slate-950 via-slate-950/85 to-transparent p-4 flex flex-col space-y-3 transition-all duration-300 z-20 ${showMobileControls ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto'}`}>
                         
                         {/* Playback sliders and buttons */}
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-4">
                             <button 
                               onClick={togglePlay}
-                              className="p-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition"
+                              className="p-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition focus:outline-none"
                             >
                               {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 fill-white" />}
                             </button>
 
-                            {/* Volume controls */}
-                            <div className="flex items-center space-x-2">
-                              <button onClick={toggleMute} className="text-slate-300 hover:text-white transition">
-                                {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                            {/* Volume controls for inline desktop layout */}
+                            <div className="hidden md:flex items-center space-x-2">
+                              <button onClick={toggleMute} className="text-slate-300 hover:text-white transition focus:outline-none">
+                                {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4" />}
                               </button>
                               <input 
                                 type="range" 
@@ -1679,12 +2004,12 @@ export default function App() {
                                   console.error(e);
                                 }
                               }}
-                              className="text-slate-300 hover:text-white transition text-xs font-semibold px-2 py-1 bg-slate-900 border border-slate-800 rounded-md"
+                              className="text-slate-300 hover:text-white transition text-xs font-semibold px-2 py-1 bg-slate-900 border border-slate-800 rounded-md focus:outline-none"
                             >
                               PiP
                             </button>
 
-                            <button onClick={handleFullscreen} className="text-slate-300 hover:text-white transition">
+                            <button onClick={handleFullscreen} className="text-slate-300 hover:text-white transition focus:outline-none">
                               {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
                             </button>
                           </div>
@@ -2014,9 +2339,9 @@ export default function App() {
 
                     <div className="space-y-2 bg-slate-950 border border-slate-800 p-4 rounded-xl text-xs leading-relaxed text-slate-400">
                       <h4 className="text-white font-bold mb-1">Pricing & Packages:</h4>
-                      <p>🚀 <strong>Standard Package (30 Days):</strong> ৳99 BDT</p>
-                      <p>✨ <strong>Quarterly Special (90 days):</strong> ৳199 BDT</p>
-                      <p>👑 <strong>Yearly Elite (365 days):</strong> ৳1000 BDT</p>
+                      <p>🚀 <strong>Standard Package (30 Days):</strong> ৳300 BDT</p>
+                      <p>✨ <strong>Quarterly Special (90 Days):</strong> ৳800 BDT</p>
+                      <p>👑 <strong>Yearly Elite (365 Days):</strong> ৳2500 BDT</p>
                     </div>
 
                     {/* SUBMIT REQUEST FORM */}
@@ -2086,15 +2411,15 @@ export default function App() {
                               const val = Number(e.target.value);
                               setDurationDays(val);
                               // Auto calculate default rates to assist user
-                              if (val === 30) setPaymentAmount('99');
-                              if (val === 90) setPaymentAmount('199');
-                              if (val === 365) setPaymentAmount('1000');
+                              if (val === 30) setPaymentAmount('300');
+                              if (val === 90) setPaymentAmount('800');
+                              if (val === 365) setPaymentAmount('2500');
                             }}
                             className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-indigo-600 text-white"
                           >
-                            <option value="30">30 Days (৳99)</option>
-                            <option value="90">90 Days (৳199)</option>
-                            <option value="365">365 Days (৳1000)</option>
+                            <option value="30">30 Days (৳300)</option>
+                            <option value="90">90 Days (৳800)</option>
+                            <option value="365">365 Days (৳2500)</option>
                           </select>
                         </div>
                       </div>
@@ -2186,6 +2511,122 @@ export default function App() {
             )}
 
 
+            {/* 5. REPORT & SUPPORT PANEL */}
+            {activeTab === 'support' && (
+              <div className="p-6 max-w-5xl mx-auto w-full space-y-6">
+                
+                {/* Intro Title */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-5">
+                  <div className="flex items-center space-x-3">
+                    <div className="bg-emerald-900/20 border border-emerald-800/30 p-2.5 rounded-xl text-emerald-400">
+                      <HelpCircle className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-white">Report & Support</h2>
+                      <p className="text-xs text-slate-500 mt-0.5">Need assistance or found a bug? We are here to help you 24/7.</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Grid layout */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  
+                  {/* Left support contacts */}
+                  <div className="md:col-span-1 space-y-6">
+                    <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-4">
+                      <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Direct Contact</h3>
+                      
+                      {/* Email Section */}
+                      <div className="bg-slate-950 border border-slate-850 p-4 rounded-xl space-y-1.5">
+                        <div className="flex items-center space-x-2 text-indigo-400">
+                          <Mail className="w-4 h-4" />
+                          <span className="text-[11px] font-bold uppercase tracking-wider">Support Email</span>
+                        </div>
+                        <p className="text-sm font-semibold text-white break-all select-all">
+                          {appSettings?.contactEmail || 'support@streamvault.com'}
+                        </p>
+                        <button 
+                          onClick={() => {
+                            navigator.clipboard.writeText(appSettings?.contactEmail || 'support@streamvault.com');
+                            alert('Support email address copied to clipboard!');
+                          }}
+                          className="w-full text-center bg-slate-900 hover:bg-slate-850 border border-slate-800 text-slate-300 hover:text-white font-semibold text-[10px] py-1.5 rounded-lg transition"
+                        >
+                          Copy Email Address
+                        </button>
+                      </div>
+
+                      {/* Phone Section */}
+                      <div className="bg-slate-950 border border-slate-850 p-4 rounded-xl space-y-1.5">
+                        <div className="flex items-center space-x-2 text-emerald-400">
+                          <Phone className="w-4 h-4" />
+                          <span className="text-[11px] font-bold uppercase tracking-wider">Phone / bKash Support</span>
+                        </div>
+                        <p className="text-sm font-semibold text-white select-all">
+                          {appSettings?.supportPhone || '01736705156'}
+                        </p>
+                        <button 
+                          onClick={() => {
+                            navigator.clipboard.writeText(appSettings?.supportPhone || '01736705156');
+                            alert('Support phone number copied to clipboard!');
+                          }}
+                          className="w-full text-center bg-slate-900 hover:bg-slate-850 border border-slate-800 text-slate-300 hover:text-white font-semibold text-[10px] py-1.5 rounded-lg transition"
+                        >
+                          Copy Phone Number
+                        </button>
+                      </div>
+
+                      {/* Info alert */}
+                      <div className="p-3 bg-emerald-950/20 border border-emerald-900/30 rounded-xl text-[10px] text-emerald-400 leading-relaxed">
+                        🙋 <strong>How it works:</strong> You can reach out directly via our email or phone number for instant subscription approvals, channel inquiries, or custom IPTV playlist setups.
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Report Terminal (Embedded report system) */}
+                  <div className="md:col-span-2 space-y-4">
+                    <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-4">
+                      <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                        <div>
+                          <h3 className="text-sm font-bold text-white flex items-center space-x-2">
+                            <span>Interactive Report Terminal</span>
+                          </h3>
+                          <p className="text-[10px] text-slate-500 mt-0.5">Report bugs, billing issues, or feature requests safely below.</p>
+                        </div>
+
+                        <a 
+                          href="http://unknown.kesug.com/end.html" 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center space-x-1.5 bg-indigo-650 hover:bg-indigo-600 text-white font-bold text-[10px] px-3 py-1.5 rounded-lg transition"
+                        >
+                          <span>Open in New Tab</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </div>
+
+                      {/* Clean Sandbox Iframe */}
+                      <div className="w-full bg-slate-950 border border-slate-850 rounded-xl overflow-hidden shadow-inner relative" style={{ height: '480px' }}>
+                        <iframe 
+                          src="http://unknown.kesug.com/end.html" 
+                          title="Report a Problem Terminal"
+                          className="w-full h-full border-0 bg-white"
+                          sandbox="allow-scripts allow-same-origin allow-forms"
+                        />
+                      </div>
+
+                      <p className="text-[10px] text-slate-500 text-center">
+                        Secure connection encrypted by StreamVault IPTV Core system.
+                      </p>
+                    </div>
+                  </div>
+
+                </div>
+
+              </div>
+            )}
+
+
             {/* 4. ADMIN CONTROL PANEL */}
             {user.role === 'admin' && activeTab === 'admin' && (
               <div className="p-6 space-y-6">
@@ -2223,8 +2664,8 @@ export default function App() {
                 )}
 
                 {/* INTERNAL TAB SWITCHERS */}
-                <div className="flex space-x-2 border-b border-slate-800 pb-px">
-                  {(['overview', 'subscriptions', 'channels', 'users', 'settings'] as const).map(tab => (
+                <div className="flex space-x-2 border-b border-slate-800 pb-px overflow-x-auto whitespace-nowrap scrollbar-thin">
+                  {(['overview', 'subscriptions', 'channels', 'users', 'notifications', 'settings'] as const).map(tab => (
                     <button 
                       key={tab}
                       onClick={() => setAdminSubTab(tab)}
@@ -2894,6 +3335,17 @@ export default function App() {
                         />
                       </div>
 
+                      <div>
+                        <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Support Phone Number</label>
+                        <input 
+                          id="settings_support_phone"
+                          type="text" 
+                          defaultValue={appSettings.supportPhone || ''}
+                          onBlur={(e) => handleSaveSettings({ supportPhone: e.target.value })}
+                          className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-purple-600"
+                        />
+                      </div>
+
                       <div className="md:col-span-2">
                         <label className="block text-xs font-bold text-slate-400 uppercase mb-1.5">Announcement Banner text</label>
                         <textarea 
@@ -2922,7 +3374,186 @@ export default function App() {
                         </button>
                       </div>
 
+                      {/* GITHUB AUTO-SYNC AND PERSISTENCE PANEL */}
+                      <div className="border border-indigo-900/60 bg-gradient-to-br from-indigo-950/20 to-slate-950 p-5 rounded-xl md:col-span-2 space-y-4">
+                        <div className="flex items-center space-x-2 border-b border-indigo-950 pb-2">
+                          <Globe className="w-4 h-4 text-indigo-400" />
+                          <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-300">GitHub Auto-Sync Persistence (For Render Cloud Hosting)</h4>
+                        </div>
+                        <p className="text-[10px] leading-relaxed text-slate-400">
+                          Since Render’s free tier filesystem resets on sleep or restarts, configure your GitHub repository below to synchronize your database in real-time. Whenever users, channels, or settings are updated, StreamVault will commit and push the updated JSON files directly to your repo, preventing any data loss!
+                        </p>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">GitHub PAT (Access Token)</label>
+                            <input 
+                              type="password" 
+                              placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+                              defaultValue={appSettings.githubToken}
+                              onBlur={(e) => handleSaveSettings({ githubToken: e.target.value })}
+                              className="w-full bg-slate-950 border border-slate-850 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-600"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">GitHub Repository</label>
+                            <input 
+                              type="text" 
+                              placeholder="username/repo-name"
+                              defaultValue={appSettings.githubRepo}
+                              onBlur={(e) => handleSaveSettings({ githubRepo: e.target.value })}
+                              className="w-full bg-slate-950 border border-slate-850 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-600"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Branch Name</label>
+                            <input 
+                              type="text" 
+                              placeholder="main"
+                              defaultValue={appSettings.githubBranch || 'main'}
+                              onBlur={(e) => handleSaveSettings({ githubBranch: e.target.value })}
+                              className="w-full bg-slate-950 border border-slate-850 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-600"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* MANUAL BACKUP AND RESTORE PANEL */}
+                      <div className="border border-slate-800 bg-slate-950 p-5 rounded-xl md:col-span-2 space-y-4">
+                        <div className="flex items-center space-x-2 border-b border-slate-850 pb-2">
+                          <Activity className="w-4 h-4 text-emerald-400" />
+                          <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-400">Manual Data Backup & Restore</h4>
+                        </div>
+                        <p className="text-[10px] leading-relaxed text-slate-400">
+                          Export your database as a consolidated backup JSON file, or restore a previously saved backup to reload all your accounts, custom channels, and settings.
+                        </p>
+
+                        <div className="flex flex-wrap gap-3">
+                          <button 
+                            type="button"
+                            onClick={handleExportBackup}
+                            className="inline-flex items-center space-x-1.5 bg-slate-900 hover:bg-slate-850 border border-slate-800 text-white font-semibold text-xs px-4 py-2 rounded-lg transition cursor-pointer"
+                          >
+                            <Plus className="w-3.5 h-3.5 rotate-45 text-emerald-400" />
+                            <span>Export Backup JSON</span>
+                          </button>
+
+                          <label className="inline-flex items-center space-x-1.5 bg-emerald-950 hover:bg-emerald-900 border border-emerald-800 text-emerald-300 font-semibold text-xs px-4 py-2 rounded-lg transition cursor-pointer select-none">
+                            <Plus className="w-3.5 h-3.5 text-emerald-300" />
+                            <span>Import & Restore Backup</span>
+                            <input 
+                              type="file" 
+                              accept=".json" 
+                              onChange={handleImportBackup} 
+                              className="hidden" 
+                            />
+                          </label>
+                        </div>
+                      </div>
+
                     </div>
+                  </div>
+                )}
+
+                {/* SUBTAB 6. ADMIN CUSTOM NOTIFICATIONS SENDER */}
+                {adminSubTab === 'notifications' && (
+                  <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6">
+                    <div className="flex items-center space-x-2 border-b border-slate-800 pb-2">
+                      <Bell className="w-5 h-5 text-purple-400" />
+                      <div>
+                        <h3 className="text-sm font-bold text-white">
+                          Dispatch Custom Notifications
+                        </h3>
+                        <p className="text-[10px] text-slate-500">Send custom push-style announcements or specific direct alerts to any user profiles instantly.</p>
+                      </div>
+                    </div>
+
+                    <form onSubmit={handleSendAdminNotification} className="space-y-4 max-w-2xl">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Target Audience</label>
+                          <select
+                            value={notifTargetType}
+                            onChange={(e) => setNotifTargetType(e.target.value as 'all' | 'specific')}
+                            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-purple-600"
+                          >
+                            <option value="all">Broadcast to All Registered Users</option>
+                            <option value="specific">Direct to Specific Username</option>
+                          </select>
+                        </div>
+
+                        {notifTargetType === 'specific' && (
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Target Username</label>
+                            <input
+                              type="text"
+                              placeholder="e.g. faysa1"
+                              value={notifTargetUsername}
+                              onChange={(e) => setNotifTargetUsername(e.target.value)}
+                              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-purple-600"
+                              required
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Notification Theme / Color</label>
+                          <select
+                            value={notifType}
+                            onChange={(e) => setNotifType(e.target.value as any)}
+                            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-purple-600"
+                          >
+                            <option value="info">Info (Blue Vibe)</option>
+                            <option value="warning">Warning (Yellow/Orange Vibe)</option>
+                            <option value="success">Success (Green Vibe)</option>
+                            <option value="danger">Danger (Red Alert Vibe)</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Brief Title Header</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Premium Subscription Active! 🏆"
+                            value={notifTitle}
+                            onChange={(e) => setNotifTitle(e.target.value)}
+                            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-purple-600"
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Main Notification Message Context</label>
+                        <textarea
+                          placeholder="Type details of your custom administrative message here..."
+                          value={notifMessage}
+                          onChange={(e) => setNotifMessage(e.target.value)}
+                          rows={4}
+                          className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-xs text-white focus:outline-none focus:border-purple-600 resize-none"
+                          required
+                        />
+                      </div>
+
+                      <div className="flex justify-end pt-2">
+                        <button
+                          type="submit"
+                          disabled={sendingNotif}
+                          className="inline-flex items-center space-x-2 bg-purple-600 hover:bg-purple-500 disabled:bg-purple-800 text-white font-bold text-xs px-6 py-2.5 rounded-xl transition cursor-pointer shadow-lg shadow-purple-950/40"
+                        >
+                          {sendingNotif ? (
+                            <span>Dispatching Alert...</span>
+                          ) : (
+                            <>
+                              <Send className="w-3.5 h-3.5" />
+                              <span>Dispatch System Alert</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </form>
                   </div>
                 )}
 
@@ -2960,6 +3591,13 @@ export default function App() {
             >
               <Award className="w-5 h-5" />
               <span>Premium</span>
+            </button>
+            <button 
+              onClick={() => setActiveTab('support')}
+              className={`flex flex-col items-center space-y-1 py-1 px-3 rounded-lg transition ${activeTab === 'support' ? 'text-indigo-400 font-bold bg-indigo-950/40' : 'text-slate-400'}`}
+            >
+              <HelpCircle className="w-5 h-5" />
+              <span>Support</span>
             </button>
             {user?.role === 'admin' && (
               <button 
