@@ -88,5 +88,14 @@
     "type": "info",
     "isReadBy": [],
     "createdAt": "2026-07-02T03:42:47.339Z"
+  },
+  {
+    "id": "f9c7e5b9-9f25-497a-b1da-fef3f631583a",
+    "userId": "all",
+    "title": "Platform Updated 📢",
+    "message": "Site settings have been updated by Administrator.",
+    "type": "info",
+    "isReadBy": [],
+    "createdAt": "2026-07-02T03:42:50.315Z"
   }
 ]
