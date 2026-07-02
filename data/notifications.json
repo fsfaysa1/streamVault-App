@@ -70,5 +70,23 @@
     "type": "info",
     "isReadBy": [],
     "createdAt": "2026-07-02T03:42:44.687Z"
+  },
+  {
+    "id": "1d9f7e09-1c4f-418f-a215-ecbd7ba355d9",
+    "userId": "all",
+    "title": "Platform Updated 📢",
+    "message": "Site settings have been updated by Administrator.",
+    "type": "info",
+    "isReadBy": [],
+    "createdAt": "2026-07-02T03:42:45.157Z"
+  },
+  {
+    "id": "bbd1eb85-c6df-4eda-a33a-e0c95bebdc3c",
+    "userId": "all",
+    "title": "Platform Updated 📢",
+    "message": "Site settings have been updated by Administrator.",
+    "type": "info",
+    "isReadBy": [],
+    "createdAt": "2026-07-02T03:42:47.339Z"
   }
 ]
